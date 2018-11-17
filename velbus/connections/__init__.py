@@ -177,3 +177,93 @@ class VelbusSocketConnection(velbus.VelbusConnection):
             time.sleep(self.SLEEP_TIME)
             if callback:
                 callback()
+
+class HomeCenterConnection(velbus.VelbusConnection):
+    """
+    Wrapper for Homecenter Socket connection configuration
+    :author: David Danssaert <david.danssaert@gmail.com>
+    """
+    SLEEP_TIME = 60 / 1000
+
+    def __init__(self, device, username, password, controller=None):
+        velbus.VelbusConnection.__init__(self)
+        self.logger = logging.getLogger('velbus')
+        self._device = device
+        self._username = username
+        self._password = password
+
+        self.controller = controller
+        # get the address from a <host>:<port> format
+        addr = device.split(':')
+        addr = (addr[0], int(addr[1]))
+        try:
+            self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self._socket.connect( addr )
+        except:
+            self.logger.error("Could not open socket, \
+                              no messages are read or written to the bus")
+            raise VelbusException("Could not open socket port")
+        
+        self.connect()    
+        
+        # build a read thread
+        self._listen_process = threading.Thread(None, self.read_daemon,
+                                         "velbus-process-reader", (), {})
+        self._listen_process.daemon = True
+        self._listen_process.start()
+
+        # build a writer thread
+        self._write_queue = Queue()
+        self._write_process = threading.Thread(None, self.write_daemon,
+                                               "velbus-connection-writer", (), {})
+        self._write_process.daemon = True
+        self._write_process.start()
+
+    def connect(self):
+        self._socket.send("VelbusLink 9.82.0.2".encode() + bytes([0x0f]))
+        self._socket.recv(9999)
+        login_payload = self._username.encode() + bytes([0xff]) + self._password.encode()
+        login_data = bytes([len(login_payload),0,0,0,0x2c,0,0,0]) + login_payload
+        self._socket.send(login_data)
+        self._socket.recv(9999)
+        self._socket.send(bytes([0,0,0,0,0x37,0,0,0]))
+        self._socket.recv(9999)
+        self._socket.recv(9999)
+
+    def stop(self):
+        """Close serial port."""
+        self.logger.warning("Stop executed")
+        try:
+            self._socket.close()
+        except:
+            self.logger.error("Error while closing socket")
+            raise VelbusException("Error while closing socket")
+        time.sleep(1)
+
+    def feed_parser(self, data):
+        """Parse received message."""
+        assert isinstance(data, bytes)
+        self.controller.feed_parser(data)
+
+    def send(self, message, callback=None):
+        """Add message to write queue."""
+        assert isinstance(message, velbus.Message)
+        self._write_queue.put_nowait((message, callback))
+
+    def read_daemon(self):
+        """Read thread."""
+        while True:
+            data = self._socket.recv(9999)
+            self.feed_parser(data[8:])
+
+    def write_daemon(self):
+        """Write thread."""
+        while True:
+            (message, callback) = self._write_queue.get(block=True)
+            self.logger.info("Sending message on USB bus: %s", str(message))
+            self.logger.debug("Sending binary message:  %s", str(message.to_binary()))
+            data = bytes([len(message.to_binary()),0,0,0,0,0x40,00,00])+message.to_binary()
+            self._socket.send(data)
+            time.sleep(self.SLEEP_TIME)
+            if callback:
+                callback()

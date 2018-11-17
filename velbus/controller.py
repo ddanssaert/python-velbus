@@ -32,14 +32,17 @@ class Controller(object):
     Velbus Bus connection controller
     """
 
-    def __init__(self, port):
+    def __init__(self, port, username=None, password=None):
         self.logger = logging.getLogger('velbus')
         self.parser = velbus.VelbusParser(self)
         self.__subscribers = []
         self.__scan_callback = None
         self._modules = {}
         if ":" in port:
-            self.connection = velbus.VelbusSocketConnection(port, self)
+            if username and password:
+                self.connection = velbus.HomeCenterConnection(port, username, password, self)                
+            else:
+                self.connection = velbus.VelbusSocketConnection(port, self)
         else:
             self.connection = velbus.VelbusUSBConnection(port, self)
 
@@ -76,13 +79,16 @@ class Controller(object):
         """
         self.connection.send(message, callback)
 
-    def get_modules(self):
+    def get_modules(self, category=None):
         """
         Returns a list of modules from a specific category
 
         :return: list
         """
-        return self._modules.values()
+        if category:
+            return [m for m in self._modules.values() if category in m.get_categories(None)]
+        else:
+            return self._modules.values()
 
     def get_module(self, address):
         """

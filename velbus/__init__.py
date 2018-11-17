@@ -145,6 +145,6 @@ from velbus.controller import Controller, VelbusConnection
 
 if not on_app_engine():
     try:
-        from velbus.connections import VelbusUSBConnection, VelbusSocketConnection
+        from velbus.connections import VelbusUSBConnection, VelbusSocketConnection, HomeCenterConnection
     except ImportError:
         pass
