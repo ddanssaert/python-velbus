@@ -76,9 +76,11 @@ class VMB8PBUModule(VMB2PBNModule):
     Velbus input module with 7 channels
     """
     def number_of_channels(self):
-        return 6
+        return 8
 
 
 velbus.register_module('VMB2PBN', VMB2PBNModule)
 velbus.register_module('VMB6PBN', VMB6PBNModule)
 velbus.register_module('VMB8PBU', VMB8PBUModule)
+
+velbus.register_module('VMB8PB', VMB8PBUModule)

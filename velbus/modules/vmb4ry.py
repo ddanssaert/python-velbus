@@ -80,3 +80,5 @@ class VMB4RYModule(velbus.Module):
 
 velbus.register_module('VMB4RYLD', VMB4RYModule)
 velbus.register_module('VMB4RYNO', VMB4RYModule)
+
+velbus.register_module('VMB4RY', VMB4RYModule)
